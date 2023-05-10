@@ -2,23 +2,32 @@
 
 Not clear what I'm doing with this yet. Please note:
 
-- This is experimental, probably broken, etc
+- This is experimental, probably indefinitely broken, etc
 - This expects you to locally clone and build CIRCT/LLVM
-- This was written for using the FIRRTL dialect
+- This doesn't target a particular release of CIRCT/LLVM
+- This was written for playing with the FIRRTL dialect
 - This was written/tested on a Linux machine
+
+This is largely derived from previous work by Fabian Schuiki 
+([fabianschuiki/moore](https://github.com/fabianschuiki/moore))
+and Kamyar Mohajerani ([kammoh/circt-rs](https://github.com/kammoh/circt-rs)),
+and preserves the dual licensing (Apache 2.0 or MIT) from both projects.
 
 # Installation
 
 `cirrus` depends on `cirrus-sys` to generate bindings. In order to build
 `cirrus-sys`, you must define a `$CIRCT_PATH` environment variable which 
 points to a directory containing the libraries/headers for CIRCT/LLVM.
-For now, we expect that you're going to build both of these locally. 
+*For now, we expect that you're going to build CIRCT/LLVM locally.*
 
-First, clone the [llvm/circt](https://github.com/llvm/circt) repository
-(which includes LLVM as a submodule). 
-I'm currently building it with the following: 
+## Building CIRCT/LLVM
+
+I'm currently building it with the following options (these are the options
+used in [kammoh/circt-rs/circt-sys/build.rs](https://github.com/kammoh/circt-rs/blob/main/circt-sys/build.rs)):
 
 ```
+$ git clone https://github.com/llvm/circt
+$ cd circt
 $ CIRCT_SRC_DIR=${PWD}
 $ mkdir build
 $ cd build
@@ -44,9 +53,11 @@ $ ninja
 $ ninja install
 ```
 
+## Setting `$CIRCT_PATH`
+
 If you're working solely on *this* library, the Cargo configuration for 
-this workspace sets `$CIRCT_PATH` to `./cirrus-sys/circt` (ignored by Git). 
-You'll want to install CIRCT/LLVM there (or create a symlink).
+this workspace sets `$CIRCT_PATH` to `./cirrus-sys/circt` (which will be 
+ignored by Git). You'll want to install CIRCT/LLVM there (or make a symlink).
 
 Otherwise, users of this library are expected to create their own 
 Cargo configuration (`.cargo/config.toml`) file defining `$CIRCT_PATH`. 
@@ -73,11 +84,11 @@ $ touch .cargo/config.toml
     CIRCT_PATH = { value = "/opt/circt" }
 ```
 
-# Other Notes
+## Linking
 
-If you run into linking problems, you might have to make sure you're using 
-`lld`. I needed to add this to the Cargo configuration for the workspace.
-I think `cc` was failing to link against `stdc++` for whatever reason?
+I originally ran into problems with linking against `stdc++`, and I think
+this was caused by Cargo invoking `cc` (which is somehow not handling this
+properly?). The Cargo configuration for this workspace uses `lld` instead:
 
 ```
 [target.x86_64-unknown-linux-gnu]
@@ -85,4 +96,6 @@ rustflags = [
     "-C", "link-arg=-fuse-ld=lld",
 ]
 ```
+
+It's not clear to me if downstream users also need to worry about this.
 
