@@ -1,0 +1,9 @@
+[env]
+CIRCT_PATH = { value = "cirrus-sys/circt", relative = true }
+
+# I could really only get this to link properly with 'lld'. 
+# Otherwise, 'cc' seemed to complain about being unable to find stdc++? 
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+    "-C", "link-arg=-fuse-ld=lld",
+]

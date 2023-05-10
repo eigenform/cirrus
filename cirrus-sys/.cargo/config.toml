@@ -1,0 +1,3 @@
+
+[env]
+CIRCT_PATH = { value = "circt", relative = true }
