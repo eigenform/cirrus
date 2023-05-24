@@ -1,8 +1,8 @@
+// Copyright (c) 2016-2021 Fabian Schuiki
+// Copyright (c) 2022-2023 Kamyar Mohajerani
 
 use cirrus_sys::*;
-
 use crate::*;
-
 use std::marker::PhantomData;
 
 decl_wrapper!(Context, MlirContext);
@@ -60,6 +60,10 @@ impl DialectHandle {
 
 decl_wrapper!(Operation, MlirOperation);
 impl Operation {
+    pub fn dump(&self) {
+        unsafe { mlirOperationDump(self.raw()) }
+    }
+
     pub fn next(&self) -> Option<Self> {
         Self::try_from_raw(
             unsafe { mlirOperationGetNextInBlock(self.raw()) }
@@ -70,9 +74,153 @@ impl Operation {
             unsafe { mlirOperationGetFirstRegion(self.raw()) }
         )
     }
+    pub fn name(&self) -> Identifier {
+        Identifier::try_from_raw(
+            unsafe { mlirOperationGetName(self.raw()) }
+        ).unwrap()
+    }
+
+    pub fn num_operands(&self) -> usize { 
+        unsafe { 
+            mlirOperationGetNumOperands(self.raw()).try_into().unwrap()
+        }
+    }
+    pub fn operand_at(&self, n: usize) -> Option<Value> {
+        Value::try_from_raw(
+            unsafe { 
+                mlirOperationGetOperand(self.raw(), n.try_into().unwrap())
+            }
+        )
+    }
+
+    pub fn result_at(&self, n: usize) -> Option<Value> {
+        Value::try_from_raw(
+            unsafe { 
+                mlirOperationGetResult(self.raw(), n.try_into().unwrap())
+            }
+        )
+    }
+
+    pub fn results(&self) -> Option<Vec<Value>> {
+        let num_results = self.num_results();
+        if num_results == 0 {
+            None
+        } else { 
+            let mut res = Vec::new();
+            for idx in 0..num_results {
+                res.push(self.result_at(idx).unwrap());
+            }
+            Some(res)
+        }
+    }
+
+    pub fn operands(&self) -> Option<Vec<Value>> {
+        let num_operands = self.num_operands();
+        if num_operands == 0 {
+            None
+        } else { 
+            let mut res = Vec::new();
+            for idx in 0..num_operands {
+                res.push(self.operand_at(idx).unwrap());
+            }
+            Some(res)
+        }
+    }
+
+    pub fn num_results(&self) -> usize { 
+        unsafe { 
+            mlirOperationGetNumResults(self.raw()).try_into().unwrap()
+        }
+    }
+
+    pub fn num_attributes(&self) -> usize { 
+        unsafe { 
+            mlirOperationGetNumAttributes(self.raw()).try_into().unwrap()
+        }
+    }
+
+    pub fn attribute_at(&self, n: usize) -> Option<NamedAttribute> {
+        NamedAttribute::try_from_raw(
+            unsafe { 
+                mlirOperationGetAttribute(self.raw(), n.try_into().unwrap())
+            }
+        )
+
+    }
+    pub fn attribute(&self, name: &str) -> Option<Attribute> {
+        Attribute::try_from_raw(
+            unsafe { 
+                mlirOperationGetAttributeByName(self.raw(), 
+                    StringRef::from_str(name).raw()
+                )
+            }
+        )
+    }
 }
 
-decl_wrapper!(Identifier, MlirIdentifier);
+decl_wrapper!(Attribute, MlirAttribute);
+impl Attribute {
+    pub fn dump(&self) {
+        unsafe { mlirAttributeDump(self.raw()) }
+    }
+}
+
+pub struct NamedAttribute {
+    _raw: MlirNamedAttribute,
+    pub name: Identifier,
+    pub attribute: Attribute, 
+}
+impl Wrapper for NamedAttribute {
+    type Inner = MlirNamedAttribute;
+    fn raw(&self) -> Self::Inner {
+        self._raw
+    }
+    fn raw_ref(&self) -> &Self::Inner {
+        &self._raw
+    }
+    fn raw_mut(&mut self) -> &mut Self::Inner {
+        &mut self._raw
+    }
+    fn try_from_raw(raw: Self::Inner) -> Option<Self> {
+        let name = Identifier::try_from_raw(raw.name);
+        let attribute = Attribute::try_from_raw(raw.attribute);
+        if name.is_none() || attribute.is_none() {
+            return None;
+        }
+        Some(Self { 
+            _raw: raw, 
+            name: name.unwrap(), 
+            attribute: attribute.unwrap() 
+        })
+    }
+
+}
+
+//decl_wrapper!(NamedAttribute, MlirNamedAttribute);
+impl BindingType for MlirNamedAttribute {
+    fn is_null(&self) -> bool { 
+        self.name.is_null() || self.attribute.is_null()
+    }
+}
+impl NamedAttribute {
+    pub fn dump(&self) {
+        unsafe { mlirAttributeDump(self.raw().attribute) }
+    }
+}
+
+
+decl_wrapper!(Value, MlirValue);
+impl Value {
+    pub fn dump(&self) {
+        unsafe { mlirValueDump(self.raw()) }
+    }
+    pub fn get_type(&self) -> Type { 
+        Type::try_from_raw(
+            unsafe { mlirValueGetType(self.raw()) }
+        ).unwrap()
+    }
+}
+
 decl_wrapper!(Region, MlirRegion);
 impl Region {
     pub fn first_block(&self) -> Option<Block> {
@@ -93,6 +241,33 @@ impl Block {
         Operation::try_from_raw(
             unsafe { 
                 mlirBlockGetFirstOperation(self.raw())
+            }
+        ).unwrap()
+    }
+}
+
+decl_wrapper!(Type, MlirType);
+impl Type { 
+    pub fn parse(ctx: &Context, type_name: &str) -> Option<Self> {
+        Self::try_from_raw(
+            unsafe {
+                mlirTypeParseGet(ctx.raw(), 
+                    StringRef::from_str(type_name).raw()
+                )
+            }
+        )
+    }
+    pub fn dump(&self) {
+        unsafe { mlirTypeDump(self.raw()) }
+    }
+}
+
+decl_wrapper!(Identifier, MlirIdentifier);
+impl Identifier {
+    pub fn to_string_ref(&self) -> StringRef { 
+        StringRef::try_from_raw(
+            unsafe { 
+                mlirIdentifierStr(self.raw())
             }
         ).unwrap()
     }

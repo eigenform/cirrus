@@ -8,6 +8,7 @@
 pub (crate) mod macros;
 
 pub mod mlir;
+pub mod firrtl; 
 use cirrus_sys::*;
 
 /// Implemented on types exposed by [cirrus_sys].
@@ -82,6 +83,14 @@ impl_binding_type!(MlirType, ptr);
 impl_binding_type!(MlirTypeID, ptr);
 impl_binding_type!(MlirValue, ptr);
 
+pub enum FirrtlOpKind {
+    Circuit,
+    Module,
+}
+pub struct FirrtlOp {
+    _op: mlir::Operation,
+    kind: FirrtlOpKind,
+}
 
 // Presumably we can start by replicating simple CAPI tests, see:
 //  https://github.com/llvm/circt/blob/main/test/CAPI/ir.c
@@ -100,40 +109,5 @@ mod tests {
         let ctx = mlir::Context::new();
     }
 
-    #[test]
-    fn parse_mlir_module_firrtl() -> Result<(), &'static str> {
-        let ctx = mlir::Context::new();
-        ctx.load_dialect(&mlir::DialectHandle::firrtl());
-
-        let mut f = File::open("../MyAlu.fir.mlir").unwrap();
-        let mut s = String::new();
-        f.read_to_string(&mut s).unwrap();
-
-        // Parse FIRRTL into a new top-level MLIR module
-        let module = mlir::Module::parse(&ctx, &s);
-        let module_body = module.body();
-
-        // The 'firrtl.circuit' op 
-        let circuit_op = module_body.first_op();
-        let circuit_region = circuit_op.first_region().unwrap();
-        let circuit_blk = circuit_region.first_block().unwrap();
-
-        // The 'firrtl.module' op 
-        let module_op = circuit_blk.first_op();
-        let module_region = module_op.first_region().unwrap();
-        let module_blk = module_region.first_block().unwrap();
-
-        // iterate over all ops in the body of firrtl.module
-        let mut this_op = module_blk.first_op();
-        unsafe {
-            cirrus_sys::mlirOperationDump(this_op.raw());
-            while let Some(op) = this_op.next() {
-                cirrus_sys::mlirOperationDump(op.raw());
-                this_op = op;
-            }
-        }
-
-        Ok(())
-    }
 
 }

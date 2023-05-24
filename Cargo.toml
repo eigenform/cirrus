@@ -1,5 +1,5 @@
 [workspace]
 
 members = [
-	"cirrus", "cirrus-sys"
+	"cirrus", "cirrus-sys", "arcilator-bind"
 ]
